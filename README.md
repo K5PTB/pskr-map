@@ -3,10 +3,8 @@
 A live web map of amateur radio propagation spots, driven by the
 [PSK Reporter](https://pskreporter.info) MQTT feed.  Spots stream in
 from the public broker in real time and are stored locally in SQLite so
-you can change band/mode filters and re-render the map instantly without
+you can change display filters and re-render the map instantly without
 waiting for data to re-populate.
-
-![Screenshot placeholder](docs/screenshot.png)
 
 ## How it works
 
@@ -16,13 +14,14 @@ PSK Reporter MQTT broker
          │
          ▼
   Python backend (FastAPI + aiomqtt)
-  ├── writes spots → SQLite  (rolling 2-hour buffer)
+  ├── writes spots → SQLite  (rolling buffer, configurable TTL)
   └── pushes new spots → browser via WebSocket
          │
          ▼
   Browser (Leaflet map)
-  ├── great-circle arcs, colored by SNR
-  └── filter controls re-query SQLite immediately
+  ├── TX station dots, colored by band
+  ├── optional great-circle arcs, colored by SNR
+  └── display filters re-query SQLite instantly
 ```
 
 By default the app connects directly to PSK Reporter's public broker.
@@ -97,8 +96,9 @@ cd pskr-map
 
 Then open **http://localhost:8765** in a browser.
 
-`run.sh` creates `.venv/` and installs dependencies on the first run,
-then starts uvicorn.  Subsequent runs skip the install step.
+`run.sh` creates `.venv/` and installs dependencies on first run,
+then starts uvicorn.  Subsequent runs skip the install step if
+packages are already satisfied.
 
 ---
 
@@ -114,7 +114,7 @@ use_tls   = true
 
 [database]
 path        = "spots.db"
-ttl_minutes = 120         # how long spots are kept in SQLite
+ttl_minutes = 60          # how long spots are kept in SQLite
 
 [server]
 host = "0.0.0.0"          # bind address (use 127.0.0.1 for local-only)
@@ -126,27 +126,112 @@ modes                   = ["FT8"]
 display_max_age_minutes = 30
 ```
 
-All settings can be changed at runtime via the browser UI except
-`broker` and `server`, which require a restart.
+`broker` and `server` require a restart to take effect.  Everything
+else can be changed at runtime via the browser UI, and those runtime
+settings are persisted automatically across restarts.
 
 ---
 
 ## Usage
 
-### Filter controls (sidebar)
+### The two-level filter model
+
+pskr-map keeps two independent filters, which is the key to its
+instant-replay behavior:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  FEED FILTER  (⚙ gear menu, top-right)              │
+│  Controls which spots the MQTT broker sends us.     │
+│  Changing this updates the MQTT subscription and    │
+│  determines what gets stored in the SQLite buffer.  │
+│  Think of it as your data collection net.           │
+└───────────────────┬─────────────────────────────────┘
+                    │  spots flow in → SQLite buffer
+┌───────────────────▼─────────────────────────────────┐
+│  DISPLAY FILTER  (top bar)                          │
+│  Controls which stored spots appear on the map.     │
+│  Changing this re-queries SQLite instantly —        │
+│  no MQTT change, no waiting for new data.           │
+│  Think of it as a view into the collected buffer.   │
+└─────────────────────────────────────────────────────┘
+```
+
+**Example:** Set the feed to collect 80m–10m FT8 with a 60-minute
+buffer.  Then use the display filter to explore 40m only, then 20m
+only, then "heard by W1AW" — each change is instant because all those
+spots are already in the buffer.
+
+---
+
+### Feed filter  (⚙ gear, top-right)
+
+The feed filter determines what the server subscribes to on MQTT and
+how long spots are retained.  Changes take effect immediately and are
+**saved across server restarts** (`pskr_state.json`).
+
+> **Bandwidth note:** the status bar shows the incoming spot rate and
+> an estimated data rate.  On a typical multi-band FT8 subscription
+> this is 10–50 Kbps.  Narrow the feed filter to reduce it.
 
 | Control | What it does |
 |---|---|
-| **Band checkboxes** | Selects which bands are subscribed from MQTT *and* shown on the map |
-| **Mode checkboxes** | Same for modes (FT8, FT4, CW, JS8, WSPR, …) |
-| **Display window** | How old a spot can be before it fades off the map (5–240 min) |
-| **Highlight callsign** | Your callsign — matching spots are drawn in white |
+| **Bands** (feed) | Which bands the server subscribes to on MQTT. Spots on other bands are never received and not stored. Use **all** / **none** shortcuts to select quickly. |
+| **Modes** (feed) | Which modes the server subscribes to. |
+| **DB TTL** slider | How long spots are kept in SQLite (5–120 min). Spots older than this are pruned every 5 minutes. |
 
-Changing bands or modes sends a new subscription to the MQTT broker
-and immediately replays matching spots from the local SQLite buffer.
-Changing only the display window re-queries SQLite without touching MQTT.
+Setting a band or mode to **none** in the feed drops that subscription
+entirely.  If you later re-enable a band you missed while it was off,
+those spots are gone — the buffer only contains what was collected
+while the subscription was active.
 
-### Line colors (SNR)
+---
+
+### Display filter  (top bar)
+
+The display filter queries the local SQLite buffer.  No MQTT
+interaction occurs; changes are instant regardless of buffer size.
+All display settings are **saved in your browser** (`localStorage`)
+and restored on the next page load.
+
+| Control | What it does |
+|---|---|
+| **Bands** | Which bands to show on the map. Must be a subset of what the feed is collecting — spots for bands outside the feed will not be in the buffer. Use **All** / **None** shortcuts. |
+| **Modes** | Which modes to show. Same subset rule applies. |
+| **Window** slider | How old a spot can be before it is removed from the map (5–120 min). Does not affect the SQLite buffer — only what is rendered. |
+| **All stations** / **Sent by** / **Heard by** | Filter to spots where the transmitting or receiving station matches a callsign or grid square. Leave set to *All stations* to see everything. |
+| Callsign / grid field | Enter a callsign (e.g. `K5PTB`) for an exact match, or a Maidenhead grid prefix (e.g. `EM`, `EM13`, `EM13LB`) to match all stations in that grid area. Active only when *Sent by* or *Heard by* is selected. |
+
+> **Display vs feed:** the display filter never changes what the server
+> collects.  If you display only 20m but the feed is collecting 40m
+> and 20m, 40m spots are silently buffered and will appear the moment
+> you add 40m back to the display filter.
+
+---
+
+### Options  (Options menu, top bar)
+
+| Option | What it does |
+|---|---|
+| **Great-circle lines** | Draw geodesic arcs from transmitter to receiver, colored by SNR. Off by default. When enabled, the SNR color legend appears next to the band legend. |
+| **Dark mode** | Switch to a dark map tile and dark UI theme. |
+
+---
+
+### Map display
+
+Each spot is drawn as a dot at the **transmitter's grid square**,
+colored by band:
+
+| Color | Band | | Color | Band |
+|---|---|---|---|---|
+| 🔴 Red | 80m | | 🔵 Sky blue | 20m |
+| 🟠 Orange | 60m | | 💜 Magenta | 17m |
+| 🟡 Gold | 40m | | 🟣 Violet | 15m |
+| 🟢 Green | 30m | | 🩵 Turquoise | 12m |
+| 🩷 Coral | 10m | | | |
+
+When **great-circle lines** are enabled, arcs are colored by SNR:
 
 | Color | SNR |
 |---|---|
@@ -155,6 +240,22 @@ Changing only the display window re-queries SQLite without touching MQTT.
 | Yellow | −10 to 0 dB |
 | Teal | −20 to −10 dB |
 | Blue | < −20 dB |
+
+Hover over any dot or arc to see the full spot details (callsigns,
+frequency, mode, SNR, band, and age).
+
+---
+
+### Status bar
+
+The status bar at the bottom of the page shows (updated every second):
+
+| Field | Meaning |
+|---|---|
+| **● Connected** / **○ Disconnected** | WebSocket connection to the backend |
+| **DB: N spots** | Total spots currently in the SQLite buffer |
+| **Showing: N** | Spots visible on the map after display filtering |
+| **N/min · ~X Kbps** | Incoming MQTT spot rate and estimated bandwidth |
 
 ---
 
