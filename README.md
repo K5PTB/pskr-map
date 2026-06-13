@@ -212,8 +212,23 @@ and restored on the next page load.
 | **Bands** | Which bands to show on the map. Must be a subset of what the feed is collecting — spots for bands outside the feed will not be in the buffer. Use **All** / **None** shortcuts. |
 | **Modes** | Which modes to show. Same subset rule applies. |
 | **Window** slider | How old a spot can be before it is removed from the map (5–120 min). Does not affect the SQLite buffer — only what is rendered. |
-| **All stations** / **Sent by** / **Heard by** | Filter to spots where the transmitting or receiving station matches a callsign or grid square. Leave set to *All stations* to see everything. |
-| Callsign / grid field | Enter a callsign (e.g. `K5PTB`) for an exact match, or a Maidenhead grid prefix (e.g. `EM`, `EM13`, `EM13LB`) to match all stations in that grid area. Active only when *Sent by* or *Heard by* is selected. |
+| **Monitors** / **Sent by** / **Heard by** | Controls what the dots represent — see below. |
+| Callsign / grid field | Enter a callsign (e.g. `K5PTB`) for an exact match, or a Maidenhead grid prefix (e.g. `EM`, `EM13`, `EM13LB`) to match all stations in that grid area. |
+
+#### View modes explained
+
+The three modes control both *which spots* are shown and *where the dots are placed*.
+The callsign/grid field acts as an optional filter in all three modes.
+
+| Mode | Dot placed at | No callsign | With callsign |
+|---|---|---|---|
+| **Monitors** | RX grid | One dot per unique receiving station — a listener map | Restrict to receivers in a grid area or a single rx_call |
+| **Sent by** | RX grid | All spots — dots show who is receiving | Dots show who heard that TX station |
+| **Heard by** | TX grid | All spots — dots show who is transmitting | Dots show what that RX station heard |
+
+> **Quick guide:** *Monitors* answers "where are the listening stations?"
+> *Sent by K5PTB* answers "who heard K5PTB?"
+> *Heard by K5PTB* answers "what did K5PTB hear?"
 
 > **Display vs feed:** the display filter never changes what the server
 > collects.  If you display only 20m but the feed is collecting 40m
@@ -233,8 +248,8 @@ and restored on the next page load.
 
 ### Map display
 
-Each spot is drawn as a dot at the **transmitter's grid square**,
-colored by band:
+Each spot is drawn as a colored dot, with placement depending on the
+selected view mode (see above).  Dots are colored by band:
 
 | Color | Band | | Color | Band |
 |---|---|---|---|---|
