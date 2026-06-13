@@ -57,8 +57,8 @@ brew install python@3.11
 
 ### Python packages
 
-The `run.sh` script creates a virtual environment and installs everything
-automatically on first run.  To install manually:
+The `run.sh` / `run.ps1` scripts create a virtual environment and install
+everything automatically on first run.  To install manually:
 
 ```bash
 python3 -m venv .venv
@@ -88,17 +88,30 @@ Mosquitto bridge handles the upstream connection.  See
 
 ## Quick start
 
+**macOS / Linux:**
 ```bash
 git clone https://github.com/K5PTB/pskr-map.git
 cd pskr-map
 ./run.sh
 ```
 
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/K5PTB/pskr-map.git
+cd pskr-map
+.\run.ps1
+```
+
 Then open **http://localhost:8765** in a browser.
 
-`run.sh` creates `.venv/` and installs dependencies on first run,
+The startup script creates `.venv/` and installs dependencies on first run,
 then starts uvicorn.  Subsequent runs skip the install step if
 packages are already satisfied.
+
+> **Windows note:** Python 3.11+ must be on your `PATH`.  Install from
+> [python.org](https://www.python.org/downloads/) and check
+> *"Add python.exe to PATH"* during setup.  If PowerShell blocks the
+> script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
 
 ---
 
