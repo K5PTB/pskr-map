@@ -61,7 +61,8 @@ body.dark-mode {
 body {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100vh;     /* fallback */
+    height: 100dvh;    /* iOS Safari: excludes collapsible browser chrome */
     background: var(--bg-body);
     color: var(--text);
     font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
@@ -300,6 +301,15 @@ body {
 #call-filter:focus { outline: none; border-color: var(--accent); }
 #feed-call-filter:focus { outline: none; border-color: var(--accent); }
 #feed-call-filter.feed-call-invalid { border-color: #cc3333; }
+
+/* ---- compact topbar on small/tablet screens ---- */
+@media (max-width: 900px) {
+    #topbar { padding: 3px 8px; gap: 6px; font-size: 12px; }
+    #topbar h1 { display: none; }
+    .top-sep { display: none; }
+    #max-age { width: 60px; }
+    #call-filter { width: 72px; }
+}
 
 /* ---- map ---- */
 #map { flex: 1; }
