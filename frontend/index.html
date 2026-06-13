@@ -298,6 +298,8 @@ body {
     font-family: "Courier New", monospace;
 }
 #call-filter:focus { outline: none; border-color: var(--accent); }
+#feed-call-filter:focus { outline: none; border-color: var(--accent); }
+#feed-call-filter.feed-call-invalid { border-color: #cc3333; }
 
 /* ---- map ---- */
 #map { flex: 1; }
@@ -456,8 +458,14 @@ body {
                 <input type="range" id="feed-ttl" min="5" max="120" value="60" step="5">
                 <span id="feed-ttl-label">60 min</span>
             </div>
+            <div class="gear-ttl">
+                <span class="ctrl-lbl">Grid/Call</span>
+                <input type="text" id="feed-call-filter" placeholder="call or grid"
+                       maxlength="14" spellcheck="false" style="width:120px">
+            </div>
             <div class="gear-footer">
-                Feed sets MQTT subscription · TTL controls how long spots are kept
+                Feed sets MQTT subscription · TTL controls how long spots are kept<br>
+                Grid/Call filters what is stored (tx or rx match)
             </div>
         </div>
     </div>

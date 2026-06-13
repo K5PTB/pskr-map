@@ -32,6 +32,7 @@ function savePrefs() {
                 bands:       selectedFeedBands(),
                 modes:       selectedFeedModes(),
                 ttl_minutes: feedTtlMinutes(),
+                call_value:  document.getElementById("feed-call-filter").value.trim(),
             },
         }));
     } catch (_) {}
@@ -78,6 +79,7 @@ function applyPrefsToUi(prefs) {
         document.getElementById("feed-ttl").value = f.ttl_minutes;
         document.getElementById("feed-ttl-label").textContent = f.ttl_minutes + " min";
     }
+    document.getElementById("feed-call-filter").value = f.call_value || "";
 
     updateDisplayBadges();
     updateFeedBadge();
@@ -162,6 +164,7 @@ function sendFeed() {
         bands: selectedFeedBands(),
         modes: selectedFeedModes(),
         ttl_minutes: feedTtlMinutes(),
+        call_value: document.getElementById("feed-call-filter").value.trim(),
     }));
 }
 
@@ -325,6 +328,7 @@ function applyFeedUi(feed) {
         document.getElementById("feed-ttl").value = feed.ttl_minutes;
         document.getElementById("feed-ttl-label").textContent = feed.ttl_minutes + " min";
     }
+    document.getElementById("feed-call-filter").value = feed.call_value || "";
     updateFeedBadge();
 }
 
@@ -391,6 +395,16 @@ window.addEventListener("DOMContentLoaded", () => {
         onFeedFilterChange();
     });
 
+    document.getElementById("feed-call-filter").addEventListener("input", (ev) => {
+        ev.target.value = ev.target.value.toUpperCase();
+        const val = ev.target.value.trim();
+        const valid = !val
+            || /^[A-R]{2}\d{2}$/.test(val)              // exactly 4-char grid
+            || /^[A-Z]{1,2}[0-9][A-Z]{1,3}$/.test(val); // standard callsign
+        ev.target.classList.toggle("feed-call-invalid", !valid);
+        if (valid) onFeedFilterChange();
+    });
+
     // Station filter
     const callType  = document.getElementById("call-type");
     const callValue = document.getElementById("call-filter");
@@ -400,7 +414,10 @@ window.addEventListener("DOMContentLoaded", () => {
         onDisplayFilterChange();
     });
 
-    callValue.addEventListener("input", onDisplayFilterChange);
+    callValue.addEventListener("input", (ev) => {
+        ev.target.value = ev.target.value.toUpperCase();
+        onDisplayFilterChange();
+    });
 
     // Options
     document.getElementById("show-lines").addEventListener("change", (ev) => {

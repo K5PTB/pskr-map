@@ -192,11 +192,54 @@ how long spots are retained.  Changes take effect immediately and are
 | **Bands** (feed) | Which bands the server subscribes to on MQTT. Spots on other bands are never received and not stored. Use **all** / **none** shortcuts to select quickly. |
 | **Modes** (feed) | Which modes the server subscribes to. |
 | **DB TTL** slider | How long spots are kept in SQLite (5–120 min). Spots older than this are pruned every 5 minutes. |
+| **Grid/Call** | Narrow the MQTT subscription to a single callsign or 4-character grid square — see below. |
 
 Setting a band or mode to **none** in the feed drops that subscription
 entirely.  If you later re-enable a band you missed while it was off,
 those spots are gone — the buffer only contains what was collected
 while the subscription was active.
+
+#### Grid/Call filter (feed-level)
+
+The **Grid/Call** field narrows the MQTT subscription so the server only
+*receives* spots involving a specific station or grid square.  This
+operates at the broker level — non-matching traffic is never transmitted
+to pskr-map at all, which makes a meaningful difference on a constrained
+connection.  Everything the server does receive is stored normally and
+available to all display filters.
+
+Accepted values:
+
+- **Exact callsign** (e.g. `K5PTB`) — broker delivers only spots where
+  that callsign appears as the transmitter *or* the receiver.
+- **4-character grid square** (e.g. `EM13`) — broker delivers only spots
+  where that grid appears as the TX grid *or* the RX grid.
+
+> **Note:** shorter grid prefixes (e.g. `EM`) are not supported here —
+> MQTT topic wildcards match a complete topic segment, not a prefix
+> within one.  For prefix filtering, use the display filter's
+> Callsign / grid field instead.  The field border turns red if the
+> value is not a recognised callsign or 4-character grid.
+
+**Field operation — POTA on a phone tether**
+
+When activating a [Parks on the Air](https://parksontheair.com) site
+using your phone as a hotspot, every kilobit counts.  The Grid/Call
+feed filter keeps pskr-map useful while barely touching your data plan:
+
+- **Before the activation** — enter your 4-character grid square
+  (e.g. `EM13`).  The server receives only spots where that grid appears
+  on either end of the path, giving you a quick read on which bands are
+  open into your operating location before you put out a call.
+
+- **During the activation** — switch to your callsign (e.g. `K5PTB`).
+  Now only spots involving your station arrive — hunters reporting you,
+  and your own reported transmissions.  You can watch your signal reach
+  new grids in real time at a fraction of the normal feed rate.
+
+> **Tip:** pair this with *Sent by K5PTB* in the display filter while
+> activating.  Dots appear at the hunters' grids, so you can watch your
+> pile-up spread across the map as hunters log you.
 
 ---
 

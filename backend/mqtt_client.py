@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import ssl
 from collections.abc import Callable, Awaitable
 from typing import Optional
@@ -16,23 +17,62 @@ SpotCallback = Callable[[Spot], Awaitable[None]]
 
 _BASE = "pskr/filter/v2"
 
+# PSK Reporter v2 topic structure (levels after base/band/mode):
+#   {tx_call} / {tx_grid4} / {rx_call} / {rx_grid4}
+_GRID4_RE = re.compile(r'^[A-Ra-r]{2}\d{2}$')
 
-def build_topics(bands: list[str], modes: list[str]) -> list[str]:
+
+def build_topics(bands: list[str], modes: list[str], call_value: str = "") -> list[str]:
     """
     Produce the minimal set of MQTT topic strings for the given filters.
 
-    - No bands, no modes  → one wildcard topic covering everything
-    - Bands only          → one topic per band (mode filtered in SQL)
-    - Modes only          → one wildcard-band topic per mode
-    - Both                → one topic per (band, mode) pair
+    call_value: exact callsign or 4-character grid square.  When set, two
+    topic patterns are generated per (band, mode) pair — one matching the
+    TX position, one the RX position — so the broker delivers only spots
+    where that station or grid appears on either end of the path.
     """
+    val = call_value.strip().upper()
+
+    if not val:
+        if not bands and not modes:
+            return [f"{_BASE}/#"]
+        if bands and not modes:
+            return [f"{_BASE}/{b}/#" for b in bands]
+        if modes and not bands:
+            return [f"{_BASE}/+/{m}/#" for m in modes]
+        return [f"{_BASE}/{b}/{m}/#" for b in bands for m in modes]
+
+    # With a call/grid value we need explicit topic patterns so the broker
+    # filters before transmitting.  Topic levels after band+mode are:
+    #   {tx_call}/{tx_grid4}/{rx_call}/{rx_grid4}
+    # Topic levels after band/mode:
+    #   {tx_call}/{rx_call}/{tx_grid}/{rx_grid}/{tx_dxcc}/{rx_dxcc}
+    # Use # after the matched level so we don't need to count trailing levels.
+    if _GRID4_RE.match(val):
+        suffixes = [f"/+/+/{val}/#",   # tx_grid match
+                    f"/+/+/+/{val}/#"]  # rx_grid match
+    else:
+        suffixes = [f"/{val}/#",        # tx_call match
+                    f"/+/{val}/#"]      # rx_call match
+
     if not bands and not modes:
-        return [f"{_BASE}/#"]
-    if bands and not modes:
-        return [f"{_BASE}/{b}/#" for b in bands]
-    if modes and not bands:
-        return [f"{_BASE}/+/{m}/#" for m in modes]
-    return [f"{_BASE}/{b}/{m}/#" for b in bands for m in modes]
+        prefixes = [f"{_BASE}/+/+"]
+    elif bands and not modes:
+        prefixes = [f"{_BASE}/{b}/+" for b in bands]
+    elif modes and not bands:
+        prefixes = [f"{_BASE}/+/{m}" for m in modes]
+    else:
+        prefixes = [f"{_BASE}/{b}/{m}" for b in bands for m in modes]
+
+    seen: set[str] = set()
+    topics: list[str] = []
+    for p in prefixes:
+        for s in suffixes:
+            t = p + s
+            if t not in seen:
+                seen.add(t)
+                topics.append(t)
+    return topics
 
 
 class MqttManager:
@@ -41,12 +81,12 @@ class MqttManager:
         self._port = broker_port
         self._use_tls = use_tls
         self._current_topics: set[str] = set()
-        self._filter_queue: asyncio.Queue[tuple[list[str], list[str]]] = asyncio.Queue()
+        self._filter_queue: asyncio.Queue[tuple[list[str], list[str], str]] = asyncio.Queue()
         self._db: Optional[aiosqlite.Connection] = None
         self._callback: Optional[SpotCallback] = None
 
-    def set_filter(self, bands: list[str], modes: list[str]) -> None:
-        self._filter_queue.put_nowait((bands, modes))
+    def set_filter(self, bands: list[str], modes: list[str], call_value: str = "") -> None:
+        self._filter_queue.put_nowait((bands, modes, call_value))
 
     async def run(
         self,
@@ -54,10 +94,11 @@ class MqttManager:
         callback: SpotCallback,
         initial_bands: list[str],
         initial_modes: list[str],
+        initial_call_value: str = "",
     ) -> None:
         self._db = db
         self._callback = callback
-        self._current_topics = set(build_topics(initial_bands, initial_modes))
+        self._current_topics = set(build_topics(initial_bands, initial_modes, initial_call_value))
 
         while True:
             try:
@@ -97,8 +138,8 @@ class MqttManager:
 
     async def _watch_filter(self, client: aiomqtt.Client) -> None:
         while True:
-            bands, modes = await self._filter_queue.get()
-            new_topics = set(build_topics(bands, modes))
+            bands, modes, call_value = await self._filter_queue.get()
+            new_topics = set(build_topics(bands, modes, call_value))
             to_unsub = self._current_topics - new_topics
             to_sub = new_topics - self._current_topics
 

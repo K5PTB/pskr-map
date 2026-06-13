@@ -51,6 +51,7 @@ _current_feed = {
     "bands": list(cfg.defaults.bands),
     "modes": list(cfg.defaults.modes),
     "ttl_minutes": cfg.database.ttl_minutes,
+    "call_value": "",
 }
 
 _saved = _load_state()
@@ -140,7 +141,8 @@ async def lifespan(app: FastAPI):
 
     tasks = [
         asyncio.create_task(
-            mqtt.run(db, _on_spot, _current_feed["bands"], _current_feed["modes"])
+            mqtt.run(db, _on_spot, _current_feed["bands"], _current_feed["modes"],
+                     _current_feed.get("call_value", ""))
         ),
         asyncio.create_task(_prune_loop(db)),
         asyncio.create_task(_stats_loop(db)),
@@ -195,10 +197,12 @@ async def ws_endpoint(websocket: WebSocket):
                 # Feed: update MQTT subscription and/or TTL, re-query SQLite
                 _current_feed["bands"] = msg.get("bands", [])
                 _current_feed["modes"] = msg.get("modes", [])
+                _current_feed["call_value"] = msg.get("call_value", "")
                 if ttl := msg.get("ttl_minutes"):
                     cfg.database.ttl_minutes = int(ttl)
                     _current_feed["ttl_minutes"] = cfg.database.ttl_minutes
-                mqtt.set_filter(_current_feed["bands"], _current_feed["modes"])
+                mqtt.set_filter(_current_feed["bands"], _current_feed["modes"],
+                               _current_feed.get("call_value", ""))
                 _save_state({"feed": _current_feed})
                 spots = await _do_query(db, _current_filter)
                 await _broadcast({"type": "spot_batch", "data": spots})
