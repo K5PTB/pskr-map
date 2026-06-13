@@ -131,7 +131,73 @@ const tileLayer = L.tileLayer(_TILES.light, {
 
 export function setDarkMode(dark) {
     tileLayer.setUrl(dark ? _TILES.dark : _TILES.light);
+    _termLayers?.forEach(l => l.setStyle({ fillOpacity: dark ? 0.45 : 0.22 }));
 }
+
+/* ---- Solar terminator / gray line ---------------------------------------- */
+
+function _terminatorLatLngs(date) {
+    const jd  = date.getTime() / 86400000 - 0.5 + 2440588;
+    const n   = jd - 2451545.0;
+
+    // Sun's ecliptic longitude
+    const L   = (280.460 + 0.9856474 * n) % 360;
+    const g   = (357.528 + 0.9856003 * n) % 360 * Math.PI / 180;
+    const lam = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
+
+    // Obliquity, declination, right ascension
+    const eps = (23.439 - 0.0000004 * n) * Math.PI / 180;
+    const dec = Math.asin(Math.sin(eps) * Math.sin(lam));
+    const RA  = Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam));
+
+    // Greenwich Sidereal Time (degrees)
+    const gst = (280.46061837 + 360.98564736629 * n) % 360;
+
+    // Sweep longitudes; start chosen so polygon wraps cleanly
+    const startLng = ((gst + 180 - RA * 180 / Math.PI) % 360) - 180;
+    const pts = [];
+    for (let i = 0; i <= 720; i++) {
+        const lng = startLng - 180 + i * 0.5;
+        const ha  = (gst + lng - RA * 180 / Math.PI) * Math.PI / 180;
+        const lat = Math.atan(-Math.cos(ha) / Math.tan(dec)) * 180 / Math.PI;
+        pts.push([lat, lng]);
+    }
+
+    // Close through the night-side pole
+    const pole = dec < 0 ? 90 : -90;
+    pts.push([pole, startLng + 180]);
+    pts.push([pole, startLng - 180]);
+    return pts;
+}
+
+// Pane sits below overlayPane (z 400) so terminator is always under spots.
+// CSS blur gives the terminator a feathered edge.
+map.createPane('terminator');
+const _termPane = map.getPane('terminator');
+_termPane.style.zIndex       = 200;
+_termPane.style.pointerEvents = 'none';
+_termPane.style.filter        = 'blur(12px)';
+
+// Three copies offset by ±360° so the shadow shows in all world copies.
+const _termLayers = [-1, 0, 1].map(() =>
+    L.polygon([], {
+        pane:        'terminator',
+        stroke:      false,
+        fillColor:   '#000',
+        fillOpacity: 0.22,
+    }).addTo(map)
+);
+
+function _updateTerminator() {
+    const pts = _terminatorLatLngs(new Date());
+    _termLayers.forEach((layer, i) => {
+        const offset = (i - 1) * 360;
+        layer.setLatLngs(pts.map(([lat, lng]) => [lat, lng + offset]));
+    });
+}
+
+_updateTerminator();
+setInterval(_updateTerminator, 60_000);
 
 /* ---- Spot layer management ----------------------------------------------- */
 
