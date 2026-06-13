@@ -350,7 +350,9 @@ function setDisplayCount(n) {
 function incrementDisplayCount(n) { setDisplayCount(_displayCount + n); }
 
 function setRate(n) {
-    document.getElementById("status-rate").textContent = `${n}/min`;
+    // ~150 bytes/spot × 8 bits × MQTT/TLS overhead ≈ 1400 bits/spot
+    const kbps = (n * 1400 / 60 / 1000).toFixed(1);
+    document.getElementById("status-rate").textContent = `${n}/min · ~${kbps} Kbps`;
 }
 
 /* ---- Init ---------------------------------------------------------------- */

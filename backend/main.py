@@ -103,7 +103,7 @@ async def _prune_loop(db):
 
 async def _stats_loop(db):
     while True:
-        await asyncio.sleep(15)
+        await asyncio.sleep(1)
         stats = await get_stats(db)
         await _broadcast({"type": "stats", "data": stats})
 
