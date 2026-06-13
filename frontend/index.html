@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSK Reporter Live Map</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+/* ---- theme variables (light default) ---- */
+:root {
+    --bg-body:    #eef0f3;
+    --bg-panel:   #e0e2e6;
+    --bg-ctrl:    #d0d3d8;
+    --bg-hover:   #c4c7cc;
+    --border:     #b0b3b8;
+    --text:       #1c1e21;
+    --text-dim:   #606770;
+    --text-faint: #909499;
+    --accent:     #1877f2;
+    --badge:      #1877f2;
+    --badge-none: #cc2200;
+    --gear-color: #2a6aad;
+    --shadow:     rgba(0,0,0,0.12);
+    --conn-ok:    #1a7a28;
+    --conn-fail:  #cc2200;
+    --legend-bg:  rgba(220,222,226,0.92);
+    --tooltip-bg: #fff;
+    --tooltip-border: #ccc;
+    --tooltip-text: #222;
+    --select-bg:  #d0d3d8;
+}
+
+body.dark-mode {
+    --bg-body:    #111;
+    --bg-panel:   #1a1a1a;
+    --bg-ctrl:    #252525;
+    --bg-hover:   #2e2e2e;
+    --border:     #4a4a4a;
+    --text:       #ccc;
+    --text-dim:   #888;
+    --text-faint: #555;
+    --accent:     #4af;
+    --badge:      #2a6aad;
+    --badge-none: #7a2a2a;
+    --gear-color: #9ac;
+    --shadow:     rgba(0,0,0,0.5);
+    --conn-ok:    #4f4;
+    --conn-fail:  #f44;
+    --legend-bg:  rgba(20,20,20,0.88);
+    --tooltip-bg: #222;
+    --tooltip-border: #444;
+    --tooltip-text: #ccc;
+    --select-bg:  #252525;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg-body);
+    color: var(--text);
+    font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+}
+
+/* ---- Leaflet tooltip theming ---- */
+.leaflet-tooltip {
+    background: var(--tooltip-bg) !important;
+    border-color: var(--tooltip-border) !important;
+    color: var(--tooltip-text) !important;
+    box-shadow: 0 2px 6px var(--shadow) !important;
+}
+
+/* ---- top bar ---- */
+#topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 12px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    z-index: 1000;
+}
+#topbar h1 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    margin-right: 4px;
+}
+.top-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    flex-shrink: 0;
+}
+.top-push { margin-left: auto; }
+
+/* ---- shared dropdown ---- */
+.dd-wrap { position: relative; }
+
+.dd-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bg-ctrl);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 3px 9px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    line-height: 1.6;
+}
+.dd-btn:hover { background: var(--bg-hover); }
+.dd-btn .arrow { font-size: 9px; opacity: 0.55; }
+
+.dd-btn .badge {
+    background: var(--badge);
+    color: #fff;
+    border-radius: 8px;
+    padding: 0 5px;
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 18px;
+    text-align: center;
+}
+.dd-btn .badge.none { background: var(--badge-none); }
+
+.dd-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    z-index: 2000;
+    min-width: 130px;
+    box-shadow: 0 6px 16px var(--shadow);
+}
+.dd-panel.open  { display: block; }
+.dd-panel.right { left: auto; right: 0; }
+
+.dd-actions {
+    display: flex;
+    gap: 6px;
+    padding: 6px 10px 5px;
+    border-bottom: 1px solid var(--border);
+}
+.dd-actions button {
+    background: var(--bg-ctrl);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 1px 8px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.dd-actions button:hover { background: var(--bg-hover); color: var(--text); }
+
+/* ---- checkbox lists ---- */
+.cb-list {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+    max-height: 260px;
+    overflow-y: auto;
+}
+.cb-list label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 12px;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 13px;
+    white-space: nowrap;
+    user-select: none;
+}
+.cb-list label:hover { background: var(--bg-hover); color: var(--text); }
+.cb-list input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
+
+/* ---- Options panel ---- */
+#options-panel { min-width: 170px; }
+#options-panel label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 13px;
+    user-select: none;
+}
+#options-panel label:hover { background: var(--bg-hover); color: var(--text); }
+#options-panel input { accent-color: var(--accent); cursor: pointer; }
+
+/* ---- Gear / feed panel ---- */
+#gear-panel { min-width: 300px; padding-bottom: 6px; }
+
+.gear-header {
+    padding: 7px 12px 5px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+    border-bottom: 1px solid var(--border);
+}
+.gear-cols { display: flex; }
+.gear-col {
+    flex: 1;
+    border-right: 1px solid var(--border);
+}
+.gear-col:last-child { border-right: none; }
+.gear-col-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 10px 2px;
+}
+.gear-col-head span {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.gear-col-head .mini-btns { display: flex; gap: 4px; }
+.gear-col-head button {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 0 2px;
+}
+.gear-col-head button:hover { opacity: 0.7; }
+.gear-col .cb-list { max-height: 220px; }
+
+.gear-ttl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 4px;
+    border-top: 1px solid var(--border);
+}
+#feed-ttl { flex: 1; accent-color: var(--gear-color); cursor: pointer; }
+#feed-ttl-label { font-size: 11px; color: var(--text-dim); min-width: 44px; text-align: right; }
+
+.gear-footer {
+    padding: 4px 12px 4px;
+    font-size: 10px;
+    color: var(--text-faint);
+    border-top: 1px solid var(--border);
+}
+
+#gear-btn { color: var(--gear-color); }
+
+/* ---- inline controls ---- */
+.ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.ctrl-lbl { font-size: 11px; color: var(--text-dim); }
+#max-age  { width: 80px; accent-color: var(--accent); cursor: pointer; }
+#max-age-label { font-size: 11px; color: var(--text-dim); min-width: 36px; }
+
+/* ---- station filter ---- */
+#call-type {
+    background: var(--select-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 3px 5px;
+    font-size: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+#call-filter {
+    background: var(--bg-ctrl);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 3px 7px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-radius: 3px;
+    width: 88px;
+    font-family: "Courier New", monospace;
+}
+#call-filter:focus   { outline: none; border-color: var(--accent); }
+#call-filter:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ---- map ---- */
+#map { flex: 1; }
+
+/* ---- status bar ---- */
+#statusbar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    padding: 3px 14px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    flex-shrink: 0;
+}
+#status-conn.connected    { color: var(--conn-ok); }
+#status-conn.disconnected { color: var(--conn-fail); }
+
+/* ---- legends ---- */
+#legend-wrap {
+    position: absolute;
+    bottom: 48px;
+    right: 10px;
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    z-index: 800;
+    pointer-events: none;
+}
+#legend, #snr-legend {
+    background: var(--legend-bg);
+    border: 1px solid var(--border);
+    padding: 5px 8px 4px;
+    font-size: 11px;
+    color: var(--text);
+}
+#snr-legend { display: none; }
+#legend .row, #snr-legend .row { display: flex; align-items: center; gap: 5px; margin: 1px 0; }
+#legend .swatch {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+}
+#snr-legend .swatch {
+    width: 18px; height: 3px; display: inline-block; border-radius: 2px; flex-shrink: 0;
+}
+#snr-legend .leg-title, #legend .leg-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+    <h1>PSK Reporter Live</h1>
+    <div class="top-sep"></div>
+
+    <!-- Display: Bands -->
+    <div class="dd-wrap">
+        <button class="dd-btn" id="band-btn">
+            Bands <span class="badge" id="band-badge">3</span>
+            <span class="arrow">▾</span>
+        </button>
+        <div class="dd-panel" id="band-panel">
+            <div class="dd-actions">
+                <button id="bands-all">All</button>
+                <button id="bands-none">None</button>
+            </div>
+            <div class="cb-list" id="band-list"></div>
+        </div>
+    </div>
+
+    <!-- Display: Modes -->
+    <div class="dd-wrap">
+        <button class="dd-btn" id="mode-btn">
+            Modes <span class="badge" id="mode-badge">1</span>
+            <span class="arrow">▾</span>
+        </button>
+        <div class="dd-panel" id="mode-panel">
+            <div class="dd-actions">
+                <button id="modes-all">All</button>
+                <button id="modes-none">None</button>
+            </div>
+            <div class="cb-list" id="mode-list"></div>
+        </div>
+    </div>
+
+    <!-- Options -->
+    <div class="dd-wrap">
+        <button class="dd-btn" id="options-btn">
+            Options <span class="arrow">▾</span>
+        </button>
+        <div class="dd-panel" id="options-panel">
+            <label><input type="checkbox" id="show-lines"> Great-circle lines</label>
+            <label><input type="checkbox" id="dark-mode"> Dark mode</label>
+        </div>
+    </div>
+
+    <div class="top-sep"></div>
+
+    <!-- Window slider -->
+    <div class="ctrl-group">
+        <span class="ctrl-lbl">Window</span>
+        <input type="range" id="max-age" min="5" max="120" value="30" step="5">
+        <span id="max-age-label">30 min</span>
+    </div>
+
+    <div class="top-sep"></div>
+
+    <!-- Station filter (replaces Highlight) -->
+    <div class="ctrl-group">
+        <select id="call-type">
+            <option value="">All stations</option>
+            <option value="tx">Sent by</option>
+            <option value="rx">Heard by</option>
+        </select>
+        <input type="text" id="call-filter" placeholder="call or grid"
+               maxlength="14" spellcheck="false" disabled>
+    </div>
+
+    <!-- Gear: feed filter (pushed to right) -->
+    <div class="dd-wrap top-push">
+        <button class="dd-btn" id="gear-btn">
+            ⚙ Feed <span class="badge" id="feed-badge">3</span>
+            <span class="arrow">▾</span>
+        </button>
+        <div class="dd-panel right" id="gear-panel">
+            <div class="gear-header">MQTT Feed Filter</div>
+            <div class="gear-cols">
+                <div class="gear-col">
+                    <div class="gear-col-head">
+                        <span>Bands</span>
+                        <div class="mini-btns">
+                            <button id="feed-bands-all">all</button>
+                            <button id="feed-bands-none">none</button>
+                        </div>
+                    </div>
+                    <div class="cb-list" id="feed-band-list"></div>
+                </div>
+                <div class="gear-col">
+                    <div class="gear-col-head">
+                        <span>Modes</span>
+                        <div class="mini-btns">
+                            <button id="feed-modes-all">all</button>
+                            <button id="feed-modes-none">none</button>
+                        </div>
+                    </div>
+                    <div class="cb-list" id="feed-mode-list"></div>
+                </div>
+            </div>
+            <div class="gear-ttl">
+                <span class="ctrl-lbl">DB TTL</span>
+                <input type="range" id="feed-ttl" min="5" max="120" value="60" step="5">
+                <span id="feed-ttl-label">60 min</span>
+            </div>
+            <div class="gear-footer">
+                Feed sets MQTT subscription · TTL controls how long spots are kept
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<div id="statusbar">
+    <span id="status-conn" class="disconnected">○ Disconnected</span>
+    <span id="status-db">DB: —</span>
+    <span id="status-display">Showing: —</span>
+    <span id="status-rate"></span>
+</div>
+
+<div id="legend-wrap">
+    <div id="snr-legend">
+        <div class="leg-title">SNR (arcs)</div>
+        <div class="row"><span class="swatch" style="background:#ff3300"></span> ≥ +10 dB</div>
+        <div class="row"><span class="swatch" style="background:#ff9900"></span> 0 to +10</div>
+        <div class="row"><span class="swatch" style="background:#ffee00"></span> −10 to 0</div>
+        <div class="row"><span class="swatch" style="background:#00cc88"></span> −20 to −10</div>
+        <div class="row"><span class="swatch" style="background:#3399ff"></span> &lt; −20 dB</div>
+    </div>
+    <div id="legend">
+        <div class="leg-title">Band</div>
+        <div id="band-legend-rows"></div>
+    </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

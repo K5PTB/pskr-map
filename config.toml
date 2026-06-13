@@ -1,0 +1,17 @@
+[broker]
+host = "mqtt.pskreporter.info"
+port = 1884
+use_tls = true
+
+[database]
+path = "spots.db"
+ttl_minutes = 60
+
+[server]
+host = "0.0.0.0"
+port = 8765
+
+[defaults]
+bands = ["40m", "20m", "15m"]
+modes = ["FT8"]
+display_max_age_minutes = 30
