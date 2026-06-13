@@ -24,7 +24,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
 from .config import load_config
-from .database import init_db, query_spots, get_stats, prune_spots, GRID_RE
+from .database import init_db, query_spots, query_monitors, get_stats, prune_spots, GRID_RE
 from .models import Spot
 from .mqtt_client import MqttManager
 
@@ -58,6 +58,19 @@ if "feed" in _saved:
     _current_feed.update(_saved["feed"])
 
 
+async def _do_query(db, f: dict) -> list:
+    """Route to the right query based on call_type."""
+    if f["call_type"] == "monitors":
+        return await query_monitors(
+            db, f["bands"], f["modes"], f["display_max_age_minutes"],
+            f["call_value"],
+        )
+    return await query_spots(
+        db, f["bands"], f["modes"], f["display_max_age_minutes"],
+        f["call_type"], f["call_value"],
+    )
+
+
 async def _broadcast(msg: dict) -> None:
     if not _clients:
         return
@@ -79,7 +92,7 @@ async def _on_spot(spot: Spot) -> None:
         return
     call_type  = f["call_type"]
     call_value = f["call_value"].strip().upper()
-    if call_type and call_value:
+    if call_type in ("tx", "rx") and call_value:
         if GRID_RE.match(call_value):
             grid = (spot.sl if call_type == "tx" else spot.rl) or ""
             if not grid.upper().startswith(call_value):
@@ -87,6 +100,13 @@ async def _on_spot(spot: Spot) -> None:
         else:
             call = (spot.sc if call_type == "tx" else spot.rc) or ""
             if call.upper() != call_value:
+                return
+    elif call_type == "monitors" and call_value:
+        if GRID_RE.match(call_value):
+            if not (spot.rl or "").upper().startswith(call_value):
+                return
+        else:
+            if (spot.rc or "").upper() != call_value:
                 return
     await _broadcast({"type": "spot", "data": spot.to_wire()})
 
@@ -150,14 +170,7 @@ async def ws_endpoint(websocket: WebSocket):
     await websocket.send_text(json.dumps({"type": "filter_ack", "filter": _current_filter}))
     await websocket.send_text(json.dumps({"type": "feed_ack",   "feed":   _current_feed}))
 
-    spots = await query_spots(
-        db,
-        _current_filter["bands"],
-        _current_filter["modes"],
-        _current_filter["display_max_age_minutes"],
-        _current_filter["call_type"],
-        _current_filter["call_value"],
-    )
+    spots = await _do_query(db, _current_filter)
     await websocket.send_text(json.dumps({"type": "spot_batch", "data": spots}))
 
     try:
@@ -174,14 +187,7 @@ async def ws_endpoint(websocket: WebSocket):
                 )
                 _current_filter["call_type"]  = msg.get("call_type", "")
                 _current_filter["call_value"] = msg.get("call_value", "")
-                spots = await query_spots(
-                    db,
-                    _current_filter["bands"],
-                    _current_filter["modes"],
-                    _current_filter["display_max_age_minutes"],
-                    _current_filter["call_type"],
-                    _current_filter["call_value"],
-                )
+                spots = await _do_query(db, _current_filter)
                 await _broadcast({"type": "spot_batch", "data": spots})
                 await _broadcast({"type": "filter_ack", "filter": _current_filter})
 
@@ -194,26 +200,12 @@ async def ws_endpoint(websocket: WebSocket):
                     _current_feed["ttl_minutes"] = cfg.database.ttl_minutes
                 mqtt.set_filter(_current_feed["bands"], _current_feed["modes"])
                 _save_state({"feed": _current_feed})
-                spots = await query_spots(
-                    db,
-                    _current_filter["bands"],
-                    _current_filter["modes"],
-                    _current_filter["display_max_age_minutes"],
-                    _current_filter["call_type"],
-                    _current_filter["call_value"],
-                )
+                spots = await _do_query(db, _current_filter)
                 await _broadcast({"type": "spot_batch", "data": spots})
                 await _broadcast({"type": "feed_ack", "feed": _current_feed})
 
             elif msg.get("type") == "get_spots":
-                spots = await query_spots(
-                    db,
-                    _current_filter["bands"],
-                    _current_filter["modes"],
-                    _current_filter["display_max_age_minutes"],
-                    _current_filter["call_type"],
-                    _current_filter["call_value"],
-                )
+                spots = await _do_query(db, _current_filter)
                 await websocket.send_text(json.dumps({"type": "spot_batch", "data": spots}))
 
     except WebSocketDisconnect:

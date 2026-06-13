@@ -114,6 +114,54 @@ async def query_spots(
     ]
 
 
+async def query_monitors(
+    db: aiosqlite.Connection,
+    bands: list[str],
+    modes: list[str],
+    max_age_min: int,
+    call_value: str = "",   # optional: grid prefix (LIKE) or exact rx_call
+) -> list[dict]:
+    """Return one spot per unique RX station — the most recent within the window."""
+    if not bands or not modes:
+        return []
+    cutoff = int(time.time()) - max_age_min * 60
+    b_ph = ','.join('?' * len(bands))
+    m_ph = ','.join('?' * len(modes))
+    cols = ', '.join(f's.{c}' for c in _COLS)
+
+    inner_where = ["timestamp >= ?", f"band IN ({b_ph})", f"mode IN ({m_ph})", "rx_grid IS NOT NULL"]
+    params: list = [cutoff] + list(bands) + list(modes)
+
+    val = call_value.strip().upper()
+    if val:
+        if GRID_RE.match(val):
+            inner_where.append("rx_grid LIKE ?")
+            params.append(val + "%")
+        else:
+            inner_where.append("UPPER(rx_call) = ?")
+            params.append(val)
+
+    sql = f"""
+        SELECT {cols}
+        FROM spots s
+        JOIN (
+            SELECT rx_call, MAX(timestamp) AS max_ts
+            FROM spots
+            WHERE {' AND '.join(inner_where)}
+            GROUP BY rx_call
+        ) m ON s.rx_call = m.rx_call AND s.timestamp = m.max_ts
+        WHERE s.rx_grid IS NOT NULL
+        GROUP BY s.rx_call
+        LIMIT 5000
+    """
+    async with db.execute(sql, params) as cur:
+        rows = await cur.fetchall()
+    return [
+        {_COL_TO_WIRE.get(k, k): v for k, v in zip(_COLS, r)}
+        for r in rows
+    ]
+
+
 async def get_stats(db: aiosqlite.Connection) -> dict:
     async with db.execute("SELECT COUNT(*) FROM spots") as cur:
         (total,) = await cur.fetchone()

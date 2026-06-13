@@ -225,11 +225,13 @@ colored by band:
 
 | Color | Band | | Color | Band |
 |---|---|---|---|---|
-| 🔴 Red | 80m | | 🔵 Sky blue | 20m |
-| 🟠 Orange | 60m | | 💜 Magenta | 17m |
-| 🟡 Gold | 40m | | 🟣 Violet | 15m |
-| 🟢 Green | 30m | | 🩵 Turquoise | 12m |
-| 🩷 Coral | 10m | | | |
+| 🟢 Lime green | 160m | | 🟡 Golden yellow | 20m |
+| 🟣 Magenta | 80m | | 🌕 Yellow | 17m |
+| 🔵 Dark navy | 60m | | 🟤 Tan | 15m |
+| 💙 Blue | 40m | | 🔴 Dark red | 12m |
+| 🍏 Green | 30m | | 🩷 Pink | 10m |
+| 🔴 Red | 6m | | 💗 Hot pink | 2m |
+| 🫒 Olive | 70cm | | | |
 
 When **great-circle lines** are enabled, arcs are colored by SNR:
 
@@ -304,4 +306,8 @@ For HTTPS, put Nginx or Caddy in front and proxy `/` and `/ws` to
 
 ## License
 
-MIT
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0)
+
+- Source must remain open
+- Derivative works must be released under AGPL-3.0
+- Network use (running as a service) counts as distribution — you must share any modifications

@@ -29,19 +29,19 @@ function normalizeLon(lon) {
 }
 
 export const BAND_COLORS = {
-    "160m": "#882200",  // dark maroon
-    "80m":  "#ff4400",  // red
-    "60m":  "#ff9900",  // orange
-    "40m":  "#ffdd00",  // gold
-    "30m":  "#00cc44",  // green
-    "20m":  "#00aaff",  // sky blue
-    "17m":  "#ee00cc",  // magenta
-    "15m":  "#7744ff",  // violet
-    "12m":  "#00ddaa",  // turquoise
-    "10m":  "#ff5577",  // coral
-    "6m":   "#bb88ff",  // lavender
-    "2m":   "#88ccff",  // periwinkle
-    "70cm": "#888888",  // gray
+    "160m": "#7df640",  // lime green
+    "80m":  "#e561e0",  // magenta
+    "60m":  "#001c86",  // dark navy
+    "40m":  "#4e67f8",  // blue
+    "30m":  "#62d56c",  // green
+    "20m":  "#f5c13c",  // golden yellow
+    "17m":  "#f4ee72",  // yellow
+    "15m":  "#cea06c",  // tan
+    "12m":  "#b42929",  // dark red
+    "10m":  "#ff72b3",  // pink
+    "6m":   "#ff2121",  // red
+    "2m":   "#ff3492",  // hot pink
+    "70cm": "#9b9628",  // olive
 };
 
 function bandToColor(band) { return BAND_COLORS[band] ?? "#888888"; }
@@ -142,6 +142,9 @@ const activeSpots = new Map();
 
 let displayMaxAgeSec = 30 * 60;
 let showLines = false;
+let _dotAtRx = false;
+let _monitorsMode = false;
+const monitorByRxCall = new Map();  // rx_call → seq, only used in monitors mode
 
 export function setDisplayMaxAge(minutes) { displayMaxAgeSec = minutes * 60; }
 
@@ -150,17 +153,37 @@ export function setShowLines(val) {
     redrawAll();
 }
 
+export function setDotAtRx(val) {
+    const changed = _dotAtRx !== !!val;
+    _dotAtRx = !!val;
+    if (changed) redrawAll();
+}
+
+export function setMonitorsMode(val) {
+    const changed = _monitorsMode !== !!val;
+    _monitorsMode = !!val;
+    monitorByRxCall.clear();
+    if (!_monitorsMode && changed) {
+        // Leaving monitors mode: wipe stale monitor dots so the incoming batch starts clean
+        spotLayer.clearLayers();
+        activeSpots.clear();
+    }
+}
+
 export function clearMap() {
     spotLayer.clearLayers();
     activeSpots.clear();
+    monitorByRxCall.clear();
 }
 
 function makeLayer(spot) {
     const txRaw = gridToLatLon(spot.tx_grid);
     const rxRaw = gridToLatLon(spot.rx_grid);
 
-    // Dots: snap to world copy nearest the current view
-    const txLL = txRaw ? [txRaw[0], normalizeLon(txRaw[1])] : null;
+    // "Sent by" mode: dot at RX grid (who heard the TX station)
+    // All other modes: dot at TX grid
+    const dotRaw = _dotAtRx ? rxRaw : txRaw;
+    const dotLL  = dotRaw ? [dotRaw[0], normalizeLon(dotRaw[1])] : null;
 
     const dotColor = bandToColor(spot.band);
     const arcColor = snrToColor(spot.snr);
@@ -173,47 +196,64 @@ function makeLayer(spot) {
         ageLabel(spot.ts),
     ].join("<br>");
 
+    const layers = [];
+
     if (showLines && txRaw && rxRaw) {
         const pts  = geodesicPoints(txRaw[0], txRaw[1], rxRaw[0], rxRaw[1]);
         const line = L.polyline(pts, { color: arcColor, weight: 1, opacity });
         line.bindTooltip(label, { sticky: true });
-        return line;
+        layers.push(line);
     }
 
-    if (txLL) {
-        const dot = L.circleMarker(txLL, {
+    if (dotLL) {
+        const dot = L.circleMarker(dotLL, {
             radius: 3, color: dotColor, fillColor: dotColor, fillOpacity: opacity, weight: 1,
         });
         dot.bindTooltip(label, { sticky: true });
-        return dot;
+        layers.push(dot);
     }
 
-    return null;
+    if (layers.length === 0) return null;
+    if (layers.length === 1) return layers[0];
+    return L.layerGroup(layers);
 }
 
 function redrawAll() {
     const entries = [...activeSpots.values()];
     spotLayer.clearLayers();
     activeSpots.clear();
+    monitorByRxCall.clear();
     for (const { ts, expiry, data } of entries) {
         const layer = makeLayer(data);
         if (!layer) continue;
         layer.addTo(spotLayer);
         activeSpots.set(data.seq, { layer, ts, expiry, data });
+        if (_monitorsMode) monitorByRxCall.set(data.rx_call, data.seq);
     }
 }
 
 export function addSpot(spot) {
-    if (activeSpots.has(spot.seq)) return;
-    const layer = makeLayer(spot);
-    if (!layer) return;
-    layer.addTo(spotLayer);
-    activeSpots.set(spot.seq, {
-        layer,
-        ts: spot.ts,
-        expiry: spot.ts + displayMaxAgeSec,
-        data: spot,
-    });
+    if (_monitorsMode) {
+        // One dot per RX station — replace if this spot is newer
+        const oldSeq = monitorByRxCall.get(spot.rx_call);
+        if (oldSeq !== undefined) {
+            const old = activeSpots.get(oldSeq);
+            if (old && spot.ts <= old.ts) return;  // not newer, skip
+            if (old) spotLayer.removeLayer(old.layer);
+            activeSpots.delete(oldSeq);
+        }
+        const layer = makeLayer(spot);
+        if (!layer) return;
+        layer.addTo(spotLayer);
+        activeSpots.set(spot.seq, { layer, ts: spot.ts, expiry: spot.ts + displayMaxAgeSec, data: spot });
+        monitorByRxCall.set(spot.rx_call, spot.seq);
+    } else {
+        if (activeSpots.has(spot.seq)) return;
+        const layer = makeLayer(spot);
+        if (!layer) return;
+        layer.addTo(spotLayer);
+        activeSpots.set(spot.seq, { layer, ts: spot.ts, expiry: spot.ts + displayMaxAgeSec, data: spot });
+    }
 }
 
 export function addSpotBatch(spots) {

@@ -1,8 +1,14 @@
 import {
     addSpot, addSpotBatch, clearMap,
-    setDisplayMaxAge, setShowLines, setDarkMode,
+    setDisplayMaxAge, setShowLines, setDarkMode, setDotAtRx, setMonitorsMode,
     BAND_COLORS,
 } from "./map.js";
+
+/* Dot placement: monitors and "sent by" both plot at RX grid */
+function applyDotMode(ct) {
+    setMonitorsMode(ct === "monitors");
+    setDotAtRx(ct === "monitors" || ct === "tx");
+}
 
 /* ---- Preferences (localStorage) ------------------------------------------ */
 
@@ -51,9 +57,9 @@ function applyPrefsToUi(prefs) {
     }
     const callType  = document.getElementById("call-type");
     const callValue = document.getElementById("call-filter");
-    callType.value  = d.call_type  || "";
+    callType.value  = d.call_type || "tx";
     callValue.value = d.call_value || "";
-    callValue.disabled = !d.call_type;
+    applyDotMode(callType.value);
 
     const o = prefs.options || {};
     const lines    = !!o.show_lines;
@@ -305,9 +311,9 @@ function applyFilterUi(filter) {
 
     const typeEl  = document.getElementById("call-type");
     const valueEl = document.getElementById("call-filter");
-    typeEl.value  = filter.call_type  || "";
+    typeEl.value  = filter.call_type || "tx";
     valueEl.value = filter.call_value || "";
-    valueEl.disabled = !filter.call_type;
+    applyDotMode(typeEl.value);
 
     updateDisplayBadges();
 }
@@ -369,6 +375,9 @@ window.addEventListener("DOMContentLoaded", () => {
     // Restore saved preferences before connecting so the UI is correct immediately
     applyPrefsToUi(loadPrefs());
 
+    // Ensure dot mode matches the select even when there were no saved prefs
+    applyDotMode(document.getElementById("call-type").value);
+
     initDropdowns();
 
     document.getElementById("max-age").addEventListener("input", (ev) => {
@@ -387,9 +396,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const callValue = document.getElementById("call-filter");
 
     callType.addEventListener("change", () => {
-        const hasType = !!callType.value;
-        callValue.disabled = !hasType;
-        if (!hasType) callValue.value = "";
+        applyDotMode(callType.value);
         onDisplayFilterChange();
     });
 

@@ -297,8 +297,7 @@ body {
     width: 88px;
     font-family: "Courier New", monospace;
 }
-#call-filter:focus   { outline: none; border-color: var(--accent); }
-#call-filter:disabled { opacity: 0.35; cursor: not-allowed; }
+#call-filter:focus { outline: none; border-color: var(--accent); }
 
 /* ---- map ---- */
 #map { flex: 1; }
@@ -414,12 +413,12 @@ body {
     <!-- Station filter (replaces Highlight) -->
     <div class="ctrl-group">
         <select id="call-type">
-            <option value="">All stations</option>
-            <option value="tx">Sent by</option>
+            <option value="monitors">Monitors</option>
+            <option value="tx" selected>Sent by</option>
             <option value="rx">Heard by</option>
         </select>
         <input type="text" id="call-filter" placeholder="call or grid"
-               maxlength="14" spellcheck="false" disabled>
+               maxlength="14" spellcheck="false">
     </div>
 
     <!-- Gear: feed filter (pushed to right) -->
