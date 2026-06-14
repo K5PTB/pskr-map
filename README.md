@@ -1,5 +1,12 @@
 # pskr-map
 
+| Light mode | Dark mode |
+|---|---|
+| ![Light mode](docs/LightMode.png) | ![Dark mode](docs/DarkMode.png) |
+
+**Great-circle lines with SNR coloring**
+![SNR lines](docs/SNRlines.png)
+
 A live web map of amateur radio propagation spots, driven by the
 [PSK Reporter](https://pskreporter.info) MQTT feed.  Spots stream in
 from the public broker in real time and are stored locally in SQLite so
@@ -193,7 +200,7 @@ how long spots are retained.  Changes take effect immediately and are
 
 > **Bandwidth note:** the status bar shows the incoming spot rate and
 > an estimated data rate.  On a typical multi-band FT8 subscription
-> this is 10–50 Kbps.  Narrow the feed filter to reduce it.
+> this is around 500 Kbps.  Narrow the feed filter to reduce it.
 
 | Control | What it does |
 |---|---|
