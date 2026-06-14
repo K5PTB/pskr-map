@@ -125,9 +125,14 @@ async def _prune_loop(db):
 async def _vacuum_loop(db):
     while True:
         await asyncio.sleep(3600)
+        db_path = Path(cfg.database.path)
+        before = db_path.stat().st_size if db_path.exists() else 0
         await db.execute("VACUUM")
         await db.commit()
-        log.info("VACUUM complete")
+        after = db_path.stat().st_size if db_path.exists() else 0
+        freed = before - after
+        log.info("VACUUM: %s → %s bytes (freed %s bytes)",
+                 f"{before:,}", f"{after:,}", f"{freed:,}")
 
 
 async def _stats_loop(db):
