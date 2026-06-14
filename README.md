@@ -1,11 +1,11 @@
 # pskr-map
 
-| Light mode | Dark mode |
-|---|---|
-| ![Light mode](docs/LightMode.png) | ![Dark mode](docs/DarkMode.png) |
+**Light mode**
+![Light mode](docs/LightMode.png)
 
-**Great-circle lines with SNR coloring**
-![SNR lines](docs/SNRlines.png)
+| Dark mode | Great-circle lines with SNR coloring |
+|---|---|
+| ![Dark mode](docs/DarkMode.png) | ![SNR lines](docs/SNRlines.png) |
 
 A live web map of amateur radio propagation spots, driven by the
 [PSK Reporter](https://pskreporter.info) MQTT feed.  Spots stream in
