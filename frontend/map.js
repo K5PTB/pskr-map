@@ -339,7 +339,7 @@ export function pruneOldSpots() {
 
 export function getActiveSpotCount() { return activeSpots.size; }
 
-setInterval(pruneOldSpots, 30_000);
+setInterval(pruneOldSpots, 10_000);
 
 /*
  * When the user pans more than 60° from where spots were last drawn,

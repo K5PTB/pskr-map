@@ -343,7 +343,7 @@ function setChecked(selector, values) {
 let _displayCount = 0;
 
 // Keep the Showing counter in sync after each prune cycle (30s cadence matches map.js)
-setInterval(() => setDisplayCount(getActiveSpotCount()), 30_000);
+setInterval(() => setDisplayCount(getActiveSpotCount()), 10_000);
 
 function setStatus(state) {
     const el = document.getElementById("status-conn");
