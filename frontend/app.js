@@ -1,7 +1,7 @@
 import {
     addSpot, addSpotBatch, clearMap,
     setDisplayMaxAge, setShowLines, setDarkMode, setDotAtRx, setMonitorsMode,
-    BAND_COLORS,
+    getActiveSpotCount, BAND_COLORS,
 } from "./map.js";
 
 /* Dot placement: monitors and "sent by" both plot at RX grid */
@@ -118,7 +118,7 @@ function connect() {
         switch (msg.type) {
             case "spot":
                 addSpot(msg.data);
-                incrementDisplayCount(1);
+                setDisplayCount(getActiveSpotCount());
                 break;
             case "spot_batch":
                 clearMap();
@@ -342,6 +342,9 @@ function setChecked(selector, values) {
 
 let _displayCount = 0;
 
+// Keep the Showing counter in sync after each prune cycle (30s cadence matches map.js)
+setInterval(() => setDisplayCount(getActiveSpotCount()), 30_000);
+
 function setStatus(state) {
     const el = document.getElementById("status-conn");
     el.textContent = state === "connected" ? "● Connected" : "○ Disconnected";
@@ -356,8 +359,6 @@ function setDisplayCount(n) {
     _displayCount = n;
     document.getElementById("status-display").textContent = `Showing: ${n.toLocaleString()}`;
 }
-
-function incrementDisplayCount(n) { setDisplayCount(_displayCount + n); }
 
 function setRate(n) {
     // ~150 bytes/spot × 8 bits × MQTT/TLS overhead ≈ 1400 bits/spot

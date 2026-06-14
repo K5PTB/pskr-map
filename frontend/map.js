@@ -337,6 +337,8 @@ export function pruneOldSpots() {
     }
 }
 
+export function getActiveSpotCount() { return activeSpots.size; }
+
 setInterval(pruneOldSpots, 30_000);
 
 /*
