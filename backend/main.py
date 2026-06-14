@@ -1,8 +1,14 @@
 import asyncio
 import json
 import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# Windows defaults to ProactorEventLoop which doesn't support add_reader();
+# aiomqtt requires SelectorEventLoop for socket monitoring.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 _STATE_FILE = Path("pskr_state.json")
 
