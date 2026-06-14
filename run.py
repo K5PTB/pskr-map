@@ -36,6 +36,8 @@ if __name__ == "__main__":
         asyncio.set_event_loop(loop)
         try:
             loop.run_until_complete(_serve())
+        except KeyboardInterrupt:
+            pass  # uvicorn re-raises Ctrl+C after cleanup; suppress the traceback
         finally:
             loop.close()
     else:
