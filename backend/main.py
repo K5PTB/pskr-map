@@ -122,6 +122,14 @@ async def _prune_loop(db):
             log.info("Pruned %d expired spots", deleted)
 
 
+async def _vacuum_loop(db):
+    while True:
+        await asyncio.sleep(3600)
+        await db.execute("VACUUM")
+        await db.commit()
+        log.info("VACUUM complete")
+
+
 async def _stats_loop(db):
     while True:
         await asyncio.sleep(1)
@@ -145,6 +153,7 @@ async def lifespan(app: FastAPI):
                      _current_feed.get("call_value", ""))
         ),
         asyncio.create_task(_prune_loop(db)),
+        asyncio.create_task(_vacuum_loop(db)),
         asyncio.create_task(_stats_loop(db)),
     ]
 
