@@ -183,6 +183,14 @@ The feed filter determines what the server subscribes to on MQTT and
 how long spots are retained.  Changes take effect immediately and are
 **saved across server restarts** (`pskr_state.json`).
 
+> **Recommended first step:** enter your 4-character home grid square
+> in the **Grid/Call** field (e.g. `EM13`).  This limits the feed to
+> spots where your grid appears on either end of the path — stations
+> in your grid hearing others, and others hearing stations in your
+> grid.  For most operators this is all that's relevant, and it cuts
+> the incoming data rate dramatically compared to an unfiltered
+> subscription.
+
 > **Bandwidth note:** the status bar shows the incoming spot rate and
 > an estimated data rate.  On a typical multi-band FT8 subscription
 > this is 10–50 Kbps.  Narrow the feed filter to reduce it.
