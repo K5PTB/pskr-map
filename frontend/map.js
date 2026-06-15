@@ -2,18 +2,17 @@
 function gridToLatLon(grid) {
     if (!grid || grid.length < 4) return null;
     const g = grid.toUpperCase();
-    const lon = (g.charCodeAt(0) - 65) * 20 - 180
-              + parseInt(g[2]) * 2 + 1;
-    const lat = (g.charCodeAt(1) - 65) * 10 - 90
-              + parseInt(g[3]) * 1 + 0.5;
+    // SW corner of the 4-char square (no center offset yet)
+    const lonSW = (g.charCodeAt(0) - 65) * 20 - 180 + parseInt(g[2]) * 2;
+    const latSW = (g.charCodeAt(1) - 65) * 10 - 90  + parseInt(g[3]);
     if (grid.length >= 6) {
         const sub = grid.toLowerCase();
         return [
-            lat + (sub.charCodeAt(5) - 97) / 24 + 1/48,
-            lon + (sub.charCodeAt(4) - 97) / 12 + 1/24,
+            latSW + (sub.charCodeAt(5) - 97) / 24 + 1/48,
+            lonSW + (sub.charCodeAt(4) - 97) / 12 + 1/24,
         ];
     }
-    return [lat, lon];
+    return [latSW + 0.5, lonSW + 1];
 }
 
 /*
