@@ -51,7 +51,7 @@ _current_feed = {
     "bands": list(cfg.defaults.bands),
     "modes": list(cfg.defaults.modes),
     "ttl_minutes": cfg.database.ttl_minutes,
-    "call_value": "",
+    "call_value": cfg.defaults.call_value,
 }
 
 _saved = _load_state()

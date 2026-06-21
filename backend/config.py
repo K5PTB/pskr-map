@@ -27,6 +27,7 @@ class DefaultsConfig:
     bands: list[str] = field(default_factory=lambda: ["40m", "20m", "15m"])
     modes: list[str] = field(default_factory=lambda: ["FT8"])
     display_max_age_minutes: int = 30
+    call_value: str = ""
 
 
 @dataclass
@@ -60,4 +61,5 @@ def load_config(path: str = "config.toml") -> AppConfig:
         cfg.defaults.display_max_age_minutes = d.get(
             "display_max_age_minutes", cfg.defaults.display_max_age_minutes
         )
+        cfg.defaults.call_value = d.get("call_value", cfg.defaults.call_value)
     return cfg
