@@ -15,3 +15,18 @@ port = 8765
 bands = ["40m", "20m", "15m"]
 modes = ["FT8"]
 display_max_age_minutes = 30
+
+[map]
+# CARTO basemap API key. The tiles work without one; a key raises the
+# rate limits on an account.
+#
+# This file is tracked in a public repo — do NOT paste a real key here.
+# Set it in the environment instead, which overrides this section:
+#
+#   PSKR_CARTO_API_KEY=your_key_here
+#
+# On the VPS, add it to the systemd unit:
+#   [Service]
+#   Environment=PSKR_CARTO_API_KEY=your_key_here
+#
+# carto_api_key = ""

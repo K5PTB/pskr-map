@@ -7,3 +7,4 @@ spots.db
 spots.db-wal
 spots.db-shm
 pskr_state.json
+.env

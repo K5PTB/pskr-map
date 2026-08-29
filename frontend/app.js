@@ -1,6 +1,7 @@
 import {
     addSpot, addSpotBatch, clearMap,
     setDisplayMaxAge, setShowLines, setDarkMode, setDotAtRx, setMonitorsMode,
+    setCartoApiKey,
     getActiveSpotCount, BAND_COLORS,
 } from "./map.js";
 
@@ -433,5 +434,19 @@ window.addEventListener("DOMContentLoaded", () => {
         savePrefs();
     });
 
+    loadClientConfig();
     connect();
 });
+
+/* Basemap key, if the server has one. Tiles already render without it, so a
+   failure here is not worth surfacing to the user. */
+async function loadClientConfig() {
+    try {
+        const resp = await fetch("api/config");
+        if (!resp.ok) return;
+        const cfg = await resp.json();
+        setCartoApiKey(cfg.carto_api_key);
+    } catch (err) {
+        console.warn("Could not load client config:", err);
+    }
+}

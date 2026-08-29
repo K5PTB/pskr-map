@@ -1,3 +1,4 @@
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,20 +32,44 @@ class DefaultsConfig:
 
 
 @dataclass
+class MapConfig:
+    carto_api_key: str = ""
+
+
+@dataclass
 class AppConfig:
     broker: BrokerConfig = field(default_factory=BrokerConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
+    map: MapConfig = field(default_factory=MapConfig)
+
+
+def _load_dotenv(path: str = ".env") -> None:
+    """Read KEY=VALUE lines from a gitignored .env, with no extra dependency.
+
+    Real environment variables win, so a file never overrides something the
+    operator (or a systemd unit) set explicitly.
+    """
+    p = Path(path)
+    if not p.exists():
+        return
+    for line in p.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
 def load_config(path: str = "config.toml") -> AppConfig:
+    _load_dotenv()
     cfg = AppConfig()
     p = Path(path)
-    if not p.exists():
-        return cfg
-    with open(p, "rb") as f:
-        data = tomllib.load(f)
+    data = {}
+    if p.exists():
+        with open(p, "rb") as f:
+            data = tomllib.load(f)
     if b := data.get("broker"):
         cfg.broker.host = b.get("host", cfg.broker.host)
         cfg.broker.port = b.get("port", cfg.broker.port)
@@ -62,4 +87,11 @@ def load_config(path: str = "config.toml") -> AppConfig:
             "display_max_age_minutes", cfg.defaults.display_max_age_minutes
         )
         cfg.defaults.call_value = d.get("call_value", cfg.defaults.call_value)
+    if m := data.get("map"):
+        cfg.map.carto_api_key = m.get("carto_api_key", cfg.map.carto_api_key)
+    # Environment wins over config.toml: that file is tracked in a public repo,
+    # so a real deployment should keep the key out of it entirely.
+    cfg.map.carto_api_key = os.environ.get(
+        "PSKR_CARTO_API_KEY", cfg.map.carto_api_key
+    ).strip()
     return cfg

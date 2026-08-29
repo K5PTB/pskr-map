@@ -122,14 +122,40 @@ const _TILES = {
 };
 const _TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-const tileLayer = L.tileLayer(_TILES.light, {
+/*
+ * CARTO serves these basemaps without credentials; an account key just raises
+ * the rate limits. It is fetched from /api/config after the map is already up,
+ * so the layer starts keyless and gets re-pointed if a key arrives. Dark mode
+ * is tracked here because either one can change the URL independently.
+ */
+let _cartoApiKey = "";
+let _darkTiles = false;
+
+function _tileUrl() {
+    const base = _darkTiles ? _TILES.dark : _TILES.light;
+    // CARTO watermarks unkeyed tiles with "API KEY REQUIRED"; the parameter
+    // is `key`, not `api_key` (carto.com/basemaps/apikey).
+    return _cartoApiKey
+        ? `${base}?key=${encodeURIComponent(_cartoApiKey)}`
+        : base;
+}
+
+const tileLayer = L.tileLayer(_tileUrl(), {
     attribution: _TILE_ATTR,
     subdomains: "abcd",
     maxZoom: 19,
 }).addTo(map);
 
+export function setCartoApiKey(key) {
+    const next = (key || "").trim();
+    if (next === _cartoApiKey) return;   // no key configured: leave tiles alone
+    _cartoApiKey = next;
+    tileLayer.setUrl(_tileUrl());
+}
+
 export function setDarkMode(dark) {
-    tileLayer.setUrl(dark ? _TILES.dark : _TILES.light);
+    _darkTiles = dark;
+    tileLayer.setUrl(_tileUrl());
     _termLayers?.forEach(l => l.setStyle({ fillOpacity: dark ? 0.45 : 0.22 }));
 }
 

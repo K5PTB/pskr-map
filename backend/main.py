@@ -232,6 +232,20 @@ async def ws_endpoint(websocket: WebSocket):
         _clients.discard(websocket)
 
 
+# --- client config -----------------------------------------------------------
+
+@app.get("/api/config")
+async def client_config() -> dict:
+    """Settings the browser needs at startup.
+
+    The CARTO key is necessarily public — tiles are fetched by the browser, so
+    anyone loading the page can read it. Serving it from here rather than
+    hardcoding it in map.js only keeps it out of the public git history; the
+    real protection is a domain restriction on the key at carto.com.
+    """
+    return {"carto_api_key": cfg.map.carto_api_key}
+
+
 # --- static files (must be last) ---------------------------------------------
 
 _frontend = Path(__file__).parent.parent / "frontend"
