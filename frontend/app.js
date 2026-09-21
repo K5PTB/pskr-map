@@ -1,6 +1,7 @@
 import {
     addSpot, addSpotBatch, clearMap,
     setDisplayMaxAge, setShowLines, setDarkMode, setDotAtRx, setMonitorsMode,
+    setMinLineSnr, LINE_SNR_FLOOR,
     setCartoApiKey,
     getActiveSpotCount, BAND_COLORS,
 } from "./map.js";
@@ -9,6 +10,25 @@ import {
 function applyDotMode(ct) {
     setMonitorsMode(ct === "monitors");
     setDotAtRx(ct === "monitors" || ct === "tx");
+}
+
+/* ---- Great-circle line options ------------------------------------------- */
+
+function lineSnrValue() { return parseInt(document.getElementById("line-snr").value, 10); }
+
+function fmtDb(v) { return v > 0 ? `+${v}` : v < 0 ? `−${-v}` : "0"; }
+
+function showLineSnrLabels(v) {
+    const open = v <= LINE_SNR_FLOOR;
+    document.getElementById("line-snr-label").textContent  = open ? "all" : `≥ ${fmtDb(v)} dB`;
+    document.getElementById("snr-legend-min").textContent = open ? "" : ` ≥ ${fmtDb(v)}`;
+}
+
+/* The SNR legend and threshold slider only mean something while lines are on */
+function syncLinesUi(lines) {
+    document.getElementById("snr-legend").style.display = lines ? "block" : "none";
+    document.getElementById("line-snr").disabled = !lines;
+    document.getElementById("line-snr-row").classList.toggle("disabled", !lines);
 }
 
 /* ---- Preferences (localStorage) ------------------------------------------ */
@@ -26,7 +46,8 @@ function savePrefs() {
                 call_value:       document.getElementById("call-filter").value.trim(),
             },
             options: {
-                show_lines: document.getElementById("show-lines").checked,
+                show_lines:   document.getElementById("show-lines").checked,
+                line_min_snr: lineSnrValue(),
                 dark_mode:  document.getElementById("dark-mode").checked,
             },
             feed: {
@@ -68,8 +89,15 @@ function applyPrefsToUi(prefs) {
     const darkMode = !!o.dark_mode;
     document.getElementById("show-lines").checked = lines;
     document.getElementById("dark-mode").checked  = darkMode;
+    const minSnr = Number(o.line_min_snr);
+    if (Number.isFinite(minSnr)) {
+        const v = Math.max(LINE_SNR_FLOOR, Math.min(30, Math.round(minSnr)));
+        document.getElementById("line-snr").value = v;
+        showLineSnrLabels(v);
+        setMinLineSnr(v);
+    }
     setShowLines(lines);
-    document.getElementById("snr-legend").style.display = lines ? "block" : "none";
+    syncLinesUi(lines);
     document.body.classList.toggle("dark-mode", darkMode);
     setDarkMode(darkMode);
 
@@ -424,7 +452,16 @@ window.addEventListener("DOMContentLoaded", () => {
     // Options
     document.getElementById("show-lines").addEventListener("change", (ev) => {
         setShowLines(ev.target.checked);
-        document.getElementById("snr-legend").style.display = ev.target.checked ? "block" : "none";
+        syncLinesUi(ev.target.checked);
+        savePrefs();
+    });
+
+    // Labels track the drag live; the map redraws on release, since rebuilding
+    // every arc on each input tick stutters with a few thousand spots on screen.
+    const lineSnr = document.getElementById("line-snr");
+    lineSnr.addEventListener("input", () => showLineSnrLabels(lineSnrValue()));
+    lineSnr.addEventListener("change", () => {
+        setMinLineSnr(lineSnrValue());
         savePrefs();
     });
 

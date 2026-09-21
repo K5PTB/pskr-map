@@ -203,6 +203,17 @@ body {
 }
 #options-panel label:hover { background: var(--bg-hover); color: var(--text); }
 #options-panel input { accent-color: var(--accent); cursor: pointer; }
+#options-panel .opt-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 12px 6px 32px;
+    white-space: nowrap;
+}
+#options-panel .opt-row.disabled { opacity: 0.4; }
+#options-panel .opt-row.disabled input { cursor: default; }
+#line-snr { width: 90px; }
+#line-snr-label { font-size: 11px; color: var(--text-dim); min-width: 48px; }
 
 /* ---- Gear / feed panel ---- */
 #gear-panel { min-width: 300px; padding-bottom: 6px; }
@@ -407,6 +418,11 @@ body {
         </button>
         <div class="dd-panel" id="options-panel">
             <label><input type="checkbox" id="show-lines"> Great-circle lines</label>
+            <div class="opt-row disabled" id="line-snr-row" title="Hide lines weaker than this SNR">
+                <span class="ctrl-lbl">Min SNR</span>
+                <input type="range" id="line-snr" min="-30" max="30" value="-30" step="1" disabled>
+                <span id="line-snr-label">all</span>
+            </div>
             <label><input type="checkbox" id="dark-mode"> Dark mode</label>
         </div>
     </div>
@@ -492,7 +508,7 @@ body {
 
 <div id="legend-wrap">
     <div id="snr-legend">
-        <div class="leg-title">SNR (arcs)</div>
+        <div class="leg-title">SNR (arcs)<span id="snr-legend-min"></span></div>
         <div class="row"><span class="swatch" style="background:#ff3300"></span> ≥ +10 dB</div>
         <div class="row"><span class="swatch" style="background:#ff9900"></span> 0 to +10</div>
         <div class="row"><span class="swatch" style="background:#ffee00"></span> −10 to 0</div>

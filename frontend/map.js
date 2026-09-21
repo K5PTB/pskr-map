@@ -233,6 +233,10 @@ const activeSpots = new Map();
 
 let displayMaxAgeSec = 30 * 60;
 let showLines = false;
+// Arcs below this SNR are hidden; the slider floor means "no threshold" so
+// reports weaker than -30 dB still draw when the filter is wide open.
+export const LINE_SNR_FLOOR = -30;
+let minLineSnr = LINE_SNR_FLOOR;
 let _dotAtRx = false;
 let _monitorsMode = false;
 const monitorByRxCall = new Map();  // rx_call → seq, only used in monitors mode
@@ -242,6 +246,12 @@ export function setDisplayMaxAge(minutes) { displayMaxAgeSec = minutes * 60; }
 export function setShowLines(val) {
     showLines = val;
     redrawAll();
+}
+
+export function setMinLineSnr(val) {
+    const changed = minLineSnr !== val;
+    minLineSnr = val;
+    if (changed && showLines) redrawAll();
 }
 
 export function setDotAtRx(val) {
@@ -289,7 +299,8 @@ function makeLayer(spot) {
 
     const layers = [];
 
-    if (showLines && txRaw && rxRaw) {
+    const snrOk = minLineSnr <= LINE_SNR_FLOOR || spot.snr >= minLineSnr;
+    if (showLines && snrOk && txRaw && rxRaw) {
         const pts  = geodesicPoints(txRaw[0], txRaw[1], rxRaw[0], rxRaw[1]);
         const line = L.polyline(pts, { color: arcColor, weight: 1, opacity });
         line.bindTooltip(label, { sticky: true });
